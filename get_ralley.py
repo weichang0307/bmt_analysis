@@ -5,7 +5,8 @@ import kernal
 import util
 # Input and output files
 input_file = "src/bwf_2.mp4"
-output_bg_file = "src/bwf_2_background.png"
+bg_file = "src/bwf_2_background.png"
+output_file = "src/bwf_2_ralley.mp4"
 
 # Open input video
 cap = cv2.VideoCapture(input_file)
@@ -26,46 +27,26 @@ print(f"FPS={fps}, Size={width}x{height}, Frames={total_frames}")
 
 # Define codec & create VideoWriter
 fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # or "XVID"
-
+out = cv2.VideoWriter(output_file, fourcc, fps, (width, height))
 
 # Move to start frame
 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
-# Get Background Model
-ret, frame = cap.read()
-bg_model = np.float32(frame)
-alpha = 0.5  # your 0.1 update rate
-track = np.zeros((3, 2), dtype=np.int32)  # to store tracked positions
-all_track = np.zeros((total_frames, 2), dtype=np.int32)
-
-if not ret:
-    print("Error: Could not read background model.")
-    cap.release()
-    exit()
+background = cv2.imread(bg_file)
 
 count = 0
-background = None
 # Loop through and save frames
 for f in tqdm(range(0, total_frames), desc="Processing frames"):
     ret, frame = cap.read()
     if not ret:
-        break
-    bg_u8 = cv2.convertScaleAbs(bg_model)               # to uint8 for display/diff
-    fg = cv2.absdiff(frame, bg_u8)
-    cv2.accumulateWeighted(frame, bg_model, alpha)
-
-
+        break            # to uint8 for display/diff
+    fg = cv2.absdiff(frame, background)
     fg_gray = cv2.cvtColor(fg, cv2.COLOR_BGR2GRAY)
-    fg_clip = fg_gray.clip(0, 255)
-    if fg_clip.sum() < width*height*10:
+    if fg_gray.sum() < width*height*30:
+        out.write(frame)
         count += 1
-        if background is None:
-            background = frame.astype(np.float32)
-        else:
-            background = cv2.addWeighted(background, (count-1)/count, frame.astype(np.float32), 1/count, 0)
-    
 
-cv2.imwrite(output_bg_file, background.astype(np.uint8))
 
 cap.release()
+out.release()
 cv2.destroyAllWindows()
